@@ -2,3 +2,10 @@
 *out
 *csv
 *html
+*png
+*vzg
+cell_boundaries/
+images/
+output/
+src/legacy/*
+src/testing/*
