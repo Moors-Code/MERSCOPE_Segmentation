@@ -6,12 +6,18 @@ import pandas as pd
 import dask.array as da
 from scipy import sparse, io
 from datetime import datetime
+from itertools import compress
+from collections import Counter
 
 start = datetime.now()
+################# Read in Masks #########################
 # Read in masks as dask.array
 masks_full = da.from_zarr('../output/dask/segmentation.zarr')
-n = masks_full.max().compute() + 1
+
+################# Read in Spots #########################
+# Read in transcripts
 allspots = pd.read_csv("../detected_transcripts.csv")
+
 # I have to load it in memory otherwise the transcript assigning will have to read from disk for each spot
 # Alternatively I could read per block which seems more complicated
 # It would probably be even more efficient to do this as sparse matrix. Need to look at 3D sparse arrays or doing this per z stack..
@@ -24,6 +30,20 @@ allspots['pixel_y'] = np.rint(allspots['global_y'] / mi_per_pixel).astype(int)
 # There are negative values for pixel_y, yai, will delete for now.
 allspots = allspots[allspots.pixel_y > 0]
 
+################# Setup count matrix #########################
+# Define the rows of our matrix (might be different across z stacks)
+# Rows
+genes_uq = allspots['gene'].unique()
+genes_uq = np.array([str(x) for x in genes_uq])
+nrow = len(genes_uq)
+
+#Cols
+# Compute maximum cell number
+n = masks_full.max().compute() + 1 # +1 here is for the range later
+ncol = n - 1
+
+#Matrix
+counts = sparse.lil_matrix((nrow,ncol))
 
 for z in range(0,7):
     # We gonan do this now per fucked up fucky de fuck z stack because this is thing is too fucking large.
@@ -36,6 +56,10 @@ for z in range(0,7):
 
     # Loading the spot csv, could be done as dask.df
     spots = allspots[allspots.global_z == z]
+
+    # Genes identified in specifc z slice
+    genes = list(spots['gene'])
+    genes = np.array([str(x) for x in genes])
 
     print('Assigning spots')
 #    spots = spots.sample(frac=0.01)
@@ -55,25 +79,16 @@ for z in range(0,7):
     # Now we can create a count matrix
     # I extract them as array assuming that's faster
     # This feels very inefficient
-    genes = spots['gene']
-    genes_uq = genes.unique()
-    gncounts = []
     print('Creating matrix ')
     for i in range(1,n):
-        if np.any(cell_id==i):
-            tmp = genes[cell_id==i].value_counts()
-        else:
-            tmp = [0 for _ in range(genes_uq.size)]
-            tmp = pd.Series(tmp)
-            tmp.index = genes_uq
-        gncounts += [tmp.rename("Cell_" + str(i))]
-
-
-    count_matrix = pd.concat(gncounts,axis=1).fillna(0)
-
-    out = 'count_matrix_{}.csv'.format(z)
-    count_matrix.to_csv(out)
-    #mtx = sparse.csr_matrix(count_matrix.values)
-    #io.mmwrite('test.mtx',mtx)
+        genes_xprsd = genes[cell_id==i]
+        gene, nspots = np.unique(genes_xprsd,return_counts=True)
+        for gn in gene:
+            r = int(np.where(genes_uq==gn)[0])
+            counts[r,i-1] += nspots[gene==gn]
     elapse = datetime.now() - start
     print("Elapsed time {}".format(elapse))
+
+
+io.mmwrite('count_matrix.mtx',counts)
+genes_uq.tofile('rownames.csv', sep = ',')
