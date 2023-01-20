@@ -22,13 +22,12 @@ allspots = pd.read_csv("../detected_transcripts.csv")
 # Alternatively I could read per block which seems more complicated
 # It would probably be even more efficient to do this as sparse matrix. Need to look at 3D sparse arrays or doing this per z stack..
 # Conversion to pixel (MERSCOPE specific)
-mi_per_pixel = 0.108 # This is the conversion of micrometer to pixel, can be found in the analysis.json output file
-# We can check that by looking at FOV 0 global_x (micrometer) to x (pixel) ratio. God knows why this is not 0.108
-allspots['pixel_x'] = np.rint(allspots['global_x'] / mi_per_pixel).astype(int) #round to integer
-allspots['pixel_y'] = np.rint(allspots['global_y'] / mi_per_pixel).astype(int)
 
-# There are negative values for pixel_y, yai, will delete for now.
-allspots = allspots[allspots.pixel_y > 0]
+# Conversion to pixel
+arr = np.genfromtxt('../images/micron_to_mosaic_pixel_transform.csv')
+# The micron to pixel is affine transformation involving a scaling and a translation. The below code is equivalent to the matrix multiplicaiton arr %*% [x,y,1]=[pixel_x,pixel_y,1]
+allspots['pixel_x'] = np.rint(allspots['global_x'] * arr[0,0] + arr[0,2]).astype(int) #round to integer
+allspots['pixel_y'] = np.rint(allspots['global_y'] * arr[1,1] + arr[1,2]).astype(int)
 
 ################# Setup count matrix #########################
 # Define the rows of our matrix (might be different across z stacks)
