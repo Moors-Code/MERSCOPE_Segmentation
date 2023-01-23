@@ -47,6 +47,7 @@ counts = sparse.lil_matrix((nrow,ncol))
 for z in range(0,7):
     # We gonan do this now per fucked up fucky de fuck z stack because this is thing is too fucking large.
     # Need to get the global max first
+    print("Starting with slice {}".format(z))
     masks = masks_full[z,:,:]
     masks = masks.map_blocks(sparse.csr_matrix)
     masks = masks.compute()
@@ -89,5 +90,5 @@ for z in range(0,7):
     print("Elapsed time {}".format(elapse))
 
 
-io.mmwrite('count_matrix.mtx',counts)
-genes_uq.tofile('rownames.csv', sep = ',')
+io.mmwrite('../output/count_matrix.mtx',counts)
+genes_uq.tofile('../output/rownames.csv', sep = ',')
