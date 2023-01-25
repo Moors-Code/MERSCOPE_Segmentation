@@ -23,3 +23,7 @@ See https://github.com/MouseLand/cellpose/issues/178
 I here implemented an approach that utilizes [dask](https://www.dask.org/]) to parallelize the segmentation.
 A lot of this based upon code in https://github.com/MouseLand/cellpose/blob/main/cellpose/contrib/distributed_segmentation.py
 
+## Notes
+- Due to the Zstacking and the stitching across tiles not all label numbers are actually present in the end (that means segment.max() != NumberOfSegments)
+- That doesn't not create any issues, just bear in mind that the count matrix then has more column than actually needed (a lot of 0 columns) which can be removed.
+- But the actual numbering stays correct.
